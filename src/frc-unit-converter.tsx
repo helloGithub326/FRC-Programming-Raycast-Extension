@@ -2,9 +2,29 @@ import { Detail, List } from "@raycast/api";
 import { useState } from "react";
 import { convertVelocity } from "./unit-converters/velocity";
 
+var helpMarkdown = `
+*Currently working units*
+
+## Velocity:
+- rpm
+- m/s or mps
+- ft/s or fps
+- km/h or kph
+- mph
+
+## Angular Velocity:
+
+## Current & Torque:
+
+## Gear Ratio:
+
+## Mechanism Physics:
+`;
+
 function getMarkdown(conversionType: string, termsStr: string) {
     let syntaxHelp = "*Syntax: value unit to unit (parameter, parameter)*";
     switch(conversionType) {
+        case "Help": return helpMarkdown;
         case "Mechanism Physics": syntaxHelp = "OTHER"
     }
 
@@ -36,8 +56,6 @@ function getMarkdown(conversionType: string, termsStr: string) {
         parametersNames = ["Wheel radius", "Gear ratio"];
 
         if (parametersNeeded) {
-            parametersNeededStr = "Parameters Needed: ";
-
             parametersNeededStr += parametersNeeded[0];
             parametersNeeded.forEach((element: string, index: number) => {
                 if (index !== 0) {
@@ -46,8 +64,6 @@ function getMarkdown(conversionType: string, termsStr: string) {
             });
         }
     }
-
-    // TODO: make sure all units are possible for that specific group of units or that speciifc conversion
 
     var markdown = ``;
 
@@ -69,6 +85,8 @@ function getMarkdown(conversionType: string, termsStr: string) {
         });
     }
 
+    markdown += (parametersNeededStr != "undefined") ? `Parameters Needed: ${parametersNeededStr}` : `Parameters Needed: `;
+
     return markdown;
 }
 
@@ -81,7 +99,8 @@ export default function Command() {
         "Angular Velocity",
         "Current & Torque",
         "Gear Ratio",
-        "Mechanism Physics"
+        "Mechanism Physics",
+        "Help"
     ]
 
     let conversionType: string = "Velocity";
