@@ -1,6 +1,7 @@
 import { Detail, List } from "@raycast/api";
 import { useState } from "react";
 import { convertVelocity } from "./unit-converters/velocity";
+import { ParameterDisplay } from "./unit-converters/general";
 
 var helpMarkdown = `
 *Currently working units*
@@ -38,30 +39,29 @@ function getMarkdown(conversionType: string, termsStr: string) {
     let value = null;
     let fromUnit = null;
     let convertUnit = null;
-    let parametersNames = null;
 
     var convertedValue: number | null = null;
-    var parametersNeeded: string[] | null = null;
-    var parametersUsed: any[] | null = null;
-    let convertedTo: string | null = null;
+    var parametersUsed: ParameterDisplay[] | null = null;
+    var parametersNeeded: string[] = [];
 
     let parametersNeededStr = "";
 
-    if (mainTerms.length > 1) {
+    if (conversionType === "Velocity" && mainTerms.length >= 4) {
         value = Number.parseFloat(mainTerms[0]);
         fromUnit = mainTerms[1];
+        // mainTerms[2] should be "to"
         convertUnit = mainTerms[3];
         
-        [convertedValue, parametersNeeded, parametersUsed, convertedTo = convertUnit] = convertVelocity(value, fromUnit, convertUnit, parametersTerms);
-        parametersNames = ["Wheel radius", "Gear ratio"];
-
-        if (parametersNeeded) {
-            parametersNeededStr += parametersNeeded[0];
-            parametersNeeded.forEach((element: string, index: number) => {
-                if (index !== 0) {
-                    parametersNeededStr += ", " + element;
-                }
-            });
+        if (!isNaN(value) && fromUnit && convertUnit) {
+                const conversionResult = convertVelocity(value, fromUnit, convertUnit, parametersTerms);
+            
+            convertedValue = conversionResult.result;
+            parametersUsed = conversionResult.parametersUsed;
+            parametersNeeded = conversionResult.parametersNeeded;
+            
+            if (conversionResult.parametersNeeded.length > 0) {
+                parametersNeededStr = conversionResult.parametersNeeded.join(", ");
+            }
         }
     }
 
@@ -76,23 +76,30 @@ function getMarkdown(conversionType: string, termsStr: string) {
     }
 
     if (fromUnit && convertUnit) {
-        markdown += `## ${fromUnit} → ${convertedTo}\n\n`;
+        markdown += `## ${fromUnit} → ${convertUnit}\n\n`;
     }
 
-    if (parametersNames && parametersUsed) {
-        parametersUsed.forEach((element, index) => {
-            markdown += `${parametersNames[index]}: ${element}\n\n`;
+    if (parametersUsed && parametersUsed.length > 0) {
+        parametersUsed.forEach((param) => {
+            const defaultLabel = param.isDefault ? " (default)" : "";
+            markdown += `*${param.name}: ${param.value}${defaultLabel}*\n\n`;
         });
     }
 
-    markdown += (parametersNeededStr != "undefined") ? `Parameters Needed: ${parametersNeededStr}` : `Parameters Needed: `;
+    if (parametersNeededStr) {
+        markdown += `**Parameters Needed: ${parametersNeededStr}**`;
+    }
 
     return markdown;
 }
 
 export default function Command() {
     const [searchText, setSearchText] = useState("");
-    const termsStr = searchText.toLowerCase();
+
+    let termsStr = "";
+    if (searchText) {
+        termsStr = searchText.toLowerCase();
+    }
 
     const convertTypes = [
         "Velocity",
@@ -107,11 +114,11 @@ export default function Command() {
 
     return (
         <List
-        searchText={searchText}
-        onSearchTextChange={setSearchText}
-        filtering={false}
-        searchBarPlaceholder="Enter a value with a unit to convert, e.g. 5400 rpm"
-        isShowingDetail
+            searchText={searchText}
+            onSearchTextChange={setSearchText}
+            filtering={false}
+            searchBarPlaceholder="Enter a value with a unit to convert, e.g. 5400 rpm"
+            isShowingDetail
         >
             {convertTypes.map((conversionType) => (
                 <List.Item key={conversionType} title={conversionType} detail={

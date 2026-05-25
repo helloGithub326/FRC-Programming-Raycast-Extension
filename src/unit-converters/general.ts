@@ -1,4 +1,82 @@
-function toMeters(value: number, unit: string) {
+export interface ConversionResult {
+    result: number | null;
+    resultUnit: string;
+    parametersNeeded: string[];
+    parametersUsed: ParameterDisplay[];
+    warnings?: string[];
+}
+
+export interface ParameterDisplay {
+    name: string;
+    value: string;
+    isDefault: boolean;
+}
+
+export interface ConverterConfig {
+    name: string;
+    units: string[];
+    intermediateUnit: string;
+    unitAliases: Record<string, string>;
+    toIntermediate: Record<string, (value: number, params: any) => number>;
+    fromIntermediate: Record<string, (value: number, params: any) => number>;
+    parseParameters: (params: string[]) => any;
+    buildParametersUsed: (params: any) => ParameterDisplay[];
+}
+
+export function normalizeUnit(unitAliases: Record<string, string>, unit: string | null | undefined): string {
+    if (!unit) return "";
+    return unitAliases[unit.toLowerCase()] || unit.toLowerCase();
+}
+
+export function createConverter(config: ConverterConfig) {
+    return (value: number, fromUnit: string, toUnit: string, parameters: string[]): ConversionResult => {
+        const normalizedFromUnit = normalizeUnit(config.unitAliases, fromUnit);
+        const normalizedToUnit = normalizeUnit(config.unitAliases, toUnit);
+        const params = config.parseParameters(parameters) || {};
+
+        const parametersNeeded: string[] = [];
+
+        if (Array.isArray((params as any).parametersNeeded)) {
+            parametersNeeded.push(...(params as any).parametersNeeded);
+        }
+
+        const toIntermediateFn = config.toIntermediate[normalizedFromUnit];
+        if (!toIntermediateFn) {
+            const combinedNeeded = parametersNeeded.length > 0 ? [...parametersNeeded, "unrecognized input unit"] : ["unrecognized input unit"];
+            return {
+                result: null,
+                resultUnit: toUnit,
+                parametersNeeded: combinedNeeded,
+                parametersUsed: config.buildParametersUsed(params),
+            };
+        }
+
+        const intermediateValue = toIntermediateFn(value, params);
+
+        let result: number | null = value;
+        let resultUnit = fromUnit;
+
+        if (normalizedToUnit && normalizedToUnit.trim() !== "") {
+            const fromIntermediateFn = config.fromIntermediate[normalizedToUnit];
+            if (fromIntermediateFn) {
+                result = fromIntermediateFn(intermediateValue, params);
+                resultUnit = toUnit;
+            } else {
+                parametersNeeded.push("unrecognized output unit");
+            }
+        }
+
+        return {
+            result,
+            resultUnit,
+            parametersNeeded,
+            parametersUsed: config.buildParametersUsed(params),
+        };
+    };
+}
+
+export function toMeters(value: number, unit: string | null | undefined) {
+    if (!unit) return value;
     const factors: Record<string, number> = {
         "mm": 0.001,
         "millimeter": 0.001,
@@ -26,12 +104,16 @@ function toMeters(value: number, unit: string) {
         "yards": 0.9144,
     };
 
-    return (factors[unit] ?? 1) * value;
+    return (factors[unit.toLowerCase()] ?? 1) * value;
 }
 
-function toGearRatio(gearRatioStr: string): number {
+export function toGearRatio(gearRatioStr: string | null | undefined): number {
+    if (!gearRatioStr) return 1;
     const parts = gearRatioStr.split(":");
-    if (parts.length !== 2) return Number.parseFloat(gearRatioStr);
+    if (parts.length !== 2) {
+        const parsed = Number.parseFloat(gearRatioStr);
+        return isNaN(parsed) ? 1 : parsed;
+    }
     
     const numerator = parseFloat(parts[0]);
     const denominator = parseFloat(parts[1]);

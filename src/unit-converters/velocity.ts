@@ -1,96 +1,140 @@
-function toMetersPerSecond(value: number, fromUnit: string, wheelRadius: number, gearRatio: number): number {
-    switch (fromUnit) {
-        case "rpm":
-            return (value / gearRatio) * ((2 * Math.PI * wheelRadius) / 60);
-        
-        case "m/s":
-        case "mps":
-            return value;
-        
-        case "ft/s":
-        case "fps":
-            return value * 0.3048;
-        
-        case "km/h":
-        case "kph":
-            return value / 3.6;
-        
-        case "mph":
-            return value * 0.44704;
-    }
+import { toMeters, toGearRatio, ConversionResult, ParameterDisplay, ConverterConfig, createConverter } from "./general";
 
-    return value;
+const VELOCITY_UNITS: string[] = ["rpm", "m/s", "mps", "ft/s", "fps", "km/h", "kph", "mph"];
+const VELOCITY_DEFAULTS = {
+    wheelRadius: 0.0508,
+    gearRatio: 1,
+};
+
+const UNIT_ALIASES: Record<string, string> = {
+    "rpm": "rpm",
+    "m/s": "m/s",
+    "mps": "m/s",
+    "ft/s": "ft/s",
+    "fps": "ft/s",
+    "km/h": "km/h",
+    "kph": "km/h",
+    "mph": "mph",
+};
+
+const TO_INTERMEDIATE_FACTORS: Record<string, (value: number, params: ParsedParams) => number> = {
+    "rpm": (value, params) => (value / params.gearRatio) * ((2 * Math.PI * params.wheelRadius) / 60),
+    "m/s": (value, _params) => value,
+    "ft/s": (value, _params) => value * 0.3048,
+    "km/h": (value, _params) => value / 3.6,
+    "mph": (value, _params) => value * 0.44704,
+};
+
+const FROM_INTERMEDIATE_FACTORS: Record<string, (value: number, params: ParsedParams) => number> = {
+    "rpm": (value, params) => {
+        const denominator = 2 * Math.PI * params.wheelRadius;
+        return denominator !== 0 ? (60 * value * params.gearRatio) / denominator : 0;
+    },
+    "m/s": (value, _params) => value,
+    "ft/s": (value, _params) => value * 3.28084,
+    "km/h": (value, _params) => value * 3.6,
+    "mph": (value, _params) => value * 2.23694,
+};
+
+interface ParsedParams {
+    wheelRadius: number;
+    gearRatio: number;
+    hasWheelRadius: boolean;
+    hasGearRatio: boolean;
+    wheelRadiusInput: string;
+    parametersNeeded?: string[];
 }
 
-function fromMetersPerSecond(metersPerSecond: number, wheelRadius: number, gearRatio: number) {
-    const rpmDenominator = 2 * Math.PI * wheelRadius;
-    const rpm = (!isNaN(rpmDenominator) && rpmDenominator !== 0) ? (60 * metersPerSecond * gearRatio) / rpmDenominator : null;
+function parseVelocityParameters(parameterStrings: string[]): ParsedParams {
+    const result: ParsedParams = {
+        wheelRadius: VELOCITY_DEFAULTS.wheelRadius,
+        gearRatio: VELOCITY_DEFAULTS.gearRatio,
+        hasWheelRadius: false,
+        hasGearRatio: false,
+        wheelRadiusInput: "",
+        parametersNeeded: [],
+    };
 
-    const feetPerSecond = metersPerSecond * 3.28084;
-    const kph = metersPerSecond * 3.6;
-    const mph = metersPerSecond * 2.23694;
+    parameterStrings.forEach((param) => {
+        const fusedMatch = param.match(/^(\d+\.?\d*)([a-z]+)$/i);
+        if (fusedMatch) {
+            const [, value, unit] = fusedMatch;
+            const parsedValue = parseFloat(value);
+            if (parsedValue > 0) {
+                result.wheelRadius = toMeters(parsedValue, unit);
+                result.wheelRadiusInput = `${value}${unit}`;
+                result.hasWheelRadius = true;
+            }
+            return;
+        }
 
-    return [metersPerSecond, rpm, feetPerSecond, kph, mph];
-}
+        const spacedMatch = param.match(/^(\d+\.?\d*)\s+([a-z]+)$/i);
+        if (spacedMatch) {
+            const [, value, unit] = spacedMatch;
+            const parsedValue = parseFloat(value);
+            if (parsedValue > 0) {
+                result.wheelRadius = toMeters(parsedValue, unit);
+                result.wheelRadiusInput = `${value} ${unit}`;
+                result.hasWheelRadius = true;
+            }
+            return;
+        }
 
-export function convertVelocity(value: number, fromUnit: string, convertUnit: string, parameters: string[]): [number | null, string[] | null, any[] | null, string?] {
-    var parametersSplit: any[][] = [];
-
-    let wheelRadius = 0.0508;
-    let gearRatio = 1;
-
-    let hasWheelRadius = false;
-    let hasGearRatio = false;
-    
-    parameters.forEach((element) => {
-        let fused = element.match(/^(\d+\.?\d*)([a-z]+)$/);
-        if (fused) {
-            parametersSplit.push([fused[1], fused[2]]);
-        } else {
-            parametersSplit.push(element.split(" "));
+        if (param.includes(":")) {
+            const ratio = toGearRatio(param);
+            if (ratio > 0) {
+                result.gearRatio = ratio;
+                result.hasGearRatio = true;
+            }
         }
     });
 
-    if (parametersSplit.length >= 1 && parametersSplit[0][0] && parametersSplit[0][1]) {
-        wheelRadius = toMeters(parametersSplit[0][0], parametersSplit[0][1]);
-        hasWheelRadius = true;
+    if (!result.hasWheelRadius) {
+        result.parametersNeeded!.push("wheel radius");
     }
-    if (parametersSplit.length >= 2 && parametersSplit[1][0]) {
-        gearRatio = toGearRatio(parametersSplit[1][0]);
-        hasGearRatio = true;
+    if (!result.hasGearRatio) {
+        result.parametersNeeded!.push("gear ratio");
     }
 
-    let msValue = toMetersPerSecond(value, fromUnit, wheelRadius, gearRatio);
-    let [metersPerSecond, rpm, feetPerSecond, kph, mph] = fromMetersPerSecond(msValue, wheelRadius, gearRatio);
-    let parametersUsed = [((parametersSplit[0][0] == null) ? parametersSplit[0].join(" ") : (wheelRadius + " m")), gearRatio];
-    
-    let parametersNeeded = [];
-    if (!hasWheelRadius) parametersNeeded.push("wheel radius");
-    if (!hasGearRatio) parametersNeeded.push("gear ratio");
-    
-    if (!convertUnit || convertUnit.trim() === "") {
-        return [value, parametersNeeded, parametersUsed];
-    }
-
-    switch (convertUnit) {
-        case "rpm":
-            return [rpm, parametersNeeded, parametersUsed];
-        
-        case "m/s":
-        case "mps":
-            return [metersPerSecond, parametersNeeded, parametersUsed];
-        
-        case "ft/s":
-        case "fps":
-            return [feetPerSecond, parametersNeeded, parametersUsed];
-        
-        case "km/h":
-        case "kph":
-            return [kph, parametersNeeded, parametersUsed];
-        
-        case "mph":
-            return [mph, parametersNeeded, parametersUsed];
-    }
-
-    return [metersPerSecond, parametersNeeded, parametersUsed, "m/s"]
+    return result;
 }
+
+function formatGearRatio(ratio: number, isDefault: boolean): string {
+    if (isDefault) {
+        return "1:1";
+    }
+    if (ratio === Math.round(ratio)) {
+        return `${Math.round(ratio)}:1`;
+    }
+    return `${ratio.toFixed(2)}:1`;
+}
+
+function buildParametersUsed(parsed: ParsedParams): ParameterDisplay[] {
+    return [
+        {
+            name: "Wheel radius",
+            value: parsed.hasWheelRadius
+                ? parsed.wheelRadiusInput
+                : `${(VELOCITY_DEFAULTS.wheelRadius * 39.37).toFixed(1)}in`,
+            isDefault: !parsed.hasWheelRadius,
+        },
+        {
+            name: "Gear ratio",
+            value: formatGearRatio(parsed.gearRatio, !parsed.hasGearRatio),
+            isDefault: !parsed.hasGearRatio,
+        },
+    ];
+}
+
+const velocityConfig: ConverterConfig = {
+    name: "Velocity",
+    units: VELOCITY_UNITS,
+    intermediateUnit: "m/s",
+    unitAliases: UNIT_ALIASES,
+    toIntermediate: TO_INTERMEDIATE_FACTORS,
+    fromIntermediate: FROM_INTERMEDIATE_FACTORS,
+    parseParameters: parseVelocityParameters,
+    buildParametersUsed: buildParametersUsed,
+};
+
+export const convertVelocity = createConverter(velocityConfig);
