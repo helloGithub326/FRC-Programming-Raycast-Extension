@@ -21,12 +21,6 @@
     {
       "name": "wpilib-documentation",
       "title": "WPILib Documentation",
-      "description": "TODO",
-      "mode": "no-view"
-    },
-    {
-      "name": "network-tables-browser",
-      "title": "Network Tables Browser",
       "description": "",
       "mode": "no-view"
     },
@@ -41,12 +35,6 @@
       "title": "FRC Unit Converter",
       "description": "",
       "mode": "view"
-    },
-    {
-      "name": "robot-status-monitor",
-      "title": "Robot Status Monitor",
-      "description": "",
-      "mode": "no-view"
     }
   ],
   "dependencies": {
