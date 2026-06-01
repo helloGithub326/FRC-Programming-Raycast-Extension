@@ -205,3 +205,5 @@ export default function Command() {
         </List>
     );
 }
+
+// TODO: Add actions (copying answer, put answer in search bar)
