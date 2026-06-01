@@ -13,7 +13,6 @@ const UNIT_ALIASES: Record<string, string> = {
     "radians/s": "rad/s",
     "deg/s": "deg/s",
     "°/s": "deg/s",
-    "degsec": "deg/s",
 };
 
 const TO_INTERMEDIATE_FACTORS: Record<string, (value: number, params: ParsedParams) => number> = {

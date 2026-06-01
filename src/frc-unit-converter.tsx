@@ -1,11 +1,12 @@
-import { Detail, List, Cache } from "@raycast/api";
+import { List, Cache } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { convertVelocity } from "./unit-converters/velocity";
 import { ParameterDisplay } from "./unit-converters/general";
+import { convertVelocity } from "./unit-converters/velocity";
 import { convertAngularVelocity } from "./unit-converters/angular-velocity";
+import { convertTorque } from "./unit-converters/torque";
 
 var helpMarkdown = `
-*Currently working units (aliases work too)*
+*Currently working units*
 
 ## Velocity:
 - rpm
@@ -16,15 +17,17 @@ var helpMarkdown = `
 
 ## Angular Velocity:
 - rpm
-- rps
-- rad/s
-- deg/s
+- rps or r/s or hz or rev/s
+- rad/s or radian/s or radians/s
+- deg/s or °/s
 
-## Current & Torque:
-
-## Gear Ratio:
-
-## Mechanism Physics:
+## Force & Torque:
+- nm or n·m
+- inlb or in-lb 
+- lbft or lbf·ft
+- ozin or oz-in
+- n or newton or newtons
+- lbf or pound-force
 `;
 
 function getMarkdown(conversionType: string, termsStr: string) {
@@ -37,14 +40,8 @@ function getMarkdown(conversionType: string, termsStr: string) {
         case "Angular Velocity":
             syntaxHelp = "*Syntax: value unit to unit*";
             break;
-        case "Current & Torque":
-            syntaxHelp = "NOT DONE"; 
-            break;
-        case "Gear Ratio":
-            syntaxHelp = "NOT DONE"; 
-            break;
-        case "Mechanism Physics":
-            syntaxHelp = "NOT DONE"; 
+        case "Force & Torque":
+            syntaxHelp = "*Syntax: value unit to unit (parameter)*";
             break;
     }
 
@@ -98,6 +95,22 @@ function getMarkdown(conversionType: string, termsStr: string) {
                     parametersNeededStr = conversionResult.parametersNeeded.join(", ");
                 }
             }
+        } else if (conversionType === "Force & Torque") {
+            value = Number.parseFloat(mainTerms[0]);
+            fromUnit = mainTerms[1];
+            convertUnit = mainTerms[3];
+            
+            if (!isNaN(value) && fromUnit && convertUnit) {
+                const conversionResult = convertTorque(value, fromUnit, convertUnit, parametersTerms);
+                
+                convertedValue = conversionResult.result;
+                parametersUsed = conversionResult.parametersUsed;
+                parametersNeeded = conversionResult.parametersNeeded;
+                
+                if (conversionResult.parametersNeeded.length > 0) {
+                    parametersNeededStr = conversionResult.parametersNeeded.join(", ");
+                }
+            }
         }
     }
 
@@ -123,7 +136,7 @@ function getMarkdown(conversionType: string, termsStr: string) {
     }
 
     if (parametersNeededStr) {
-        markdown += `**Parameters Needed: ${parametersNeededStr}**`;
+        markdown += `**Needed: ${parametersNeededStr}**`;
     }
 
     return markdown;
@@ -167,9 +180,7 @@ export default function Command() {
     const convertTypes = [
         "Velocity",
         "Angular Velocity",
-        "Current & Torque",
-        "Gear Ratio",
-        "Mechanism Physics",
+        "Force & Torque",
         "Help"
     ]
 
