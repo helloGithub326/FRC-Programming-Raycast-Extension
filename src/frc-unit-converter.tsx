@@ -1,4 +1,4 @@
-import { List, Cache } from "@raycast/api";
+import { List, Cache, ActionPanel, Action } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { ParameterDisplay } from "./unit-converters/general";
 import { convertVelocity } from "./unit-converters/velocity";
@@ -30,10 +30,10 @@ var helpMarkdown = `
 - lbf or pound-force
 `;
 
-function getMarkdown(conversionType: string, termsStr: string) {
+function getMarkdown(conversionType: string, termsStr: string): [string, string] {
     let syntaxHelp = "";
     switch(conversionType) {
-        case "Help": return helpMarkdown
+        case "Help": return [helpMarkdown, "N/A"];
         case "Velocity":
             syntaxHelp = "*Syntax: value unit to unit (parameter, parameter)*";
             break;
@@ -139,7 +139,7 @@ function getMarkdown(conversionType: string, termsStr: string) {
         markdown += `**Needed: ${parametersNeededStr}**`;
     }
 
-    return markdown;
+    return [markdown, convertedValue != null ? parseFloat(convertedValue.toFixed(4)).toString() : "N/A"];
 }
 
 const cache = new Cache();
@@ -184,6 +184,8 @@ export default function Command() {
         "Help"
     ]
 
+    const [detailMarkdown, answer] = getMarkdown(selectedType, termsStr)
+
     return (
         <List
             searchText={searchText}
@@ -199,11 +201,23 @@ export default function Command() {
                     key={conversionType} 
                     id={conversionType}
                     title={conversionType} 
-                    detail={<List.Item.Detail markdown={getMarkdown(conversionType, termsStr)} />}
+                    detail={<List.Item.Detail markdown={detailMarkdown} />}
+                    actions={
+                        <ActionPanel title="Test Title">
+                            <Action.CopyToClipboard
+                                title="Copy Answer"
+                                content={answer}
+                            />
+                            <Action
+                                title="Put Answer in Search Bar"
+                                onAction={() => setSearchText(answer + "")}
+                            />
+                        </ActionPanel>
+                    }
                 />
             ))}
         </List>
     );
 }
 
-// TODO: Add actions (copying answer, put answer in search bar)
+// TODO: Action menu isn't coming up
