@@ -203,7 +203,7 @@ export default function Command() {
                     title={conversionType} 
                     detail={<List.Item.Detail markdown={detailMarkdown} />}
                     actions={
-                        <ActionPanel title="Test Title">
+                        <ActionPanel title="Unit Converter">
                             <Action.CopyToClipboard
                                 title="Copy Answer"
                                 content={answer}
@@ -219,5 +219,3 @@ export default function Command() {
         </List>
     );
 }
-
-// TODO: Action menu isn't coming up

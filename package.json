@@ -11,24 +11,22 @@
   ],
   "categories": [
     "Developer Tools",
-    "Data",
     "Documentation",
-    "Productivity",
-    "Web"
+    "Productivity"
   ],
   "license": "MIT",
   "commands": [
     {
-      "name": "wpilib-documentation",
-      "title": "WPILib Documentation",
+      "name": "wpilib-java-documentation",
+      "title": "WPILib Java Documentation",
       "description": "",
-      "mode": "no-view"
+      "mode": "view"
     },
     {
       "name": "motor-sensor-status-light-reference",
       "title": "Motor & Sensor Status Light Reference",
       "description": "",
-      "mode": "no-view"
+      "mode": "view"
     },
     {
       "name": "frc-unit-converter",
