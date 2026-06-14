@@ -2,207 +2,145 @@ import { List, Cache, ActionPanel, Action } from "@raycast/api";
 import { useState, useRef } from "react";
 
 const cache = new Cache();
-const SEARCH_TEXT_KEY = "searchText";
-
-function htmlToText(html: string) {
-    return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
+const SEARCH_TEXT_KEY = "searchTextJava";
+const BASE_URL = "https://github.wpilib.org/allwpilib/docs/release/java/";
 
 type ClassItem = {
-    name: string;
-    url: string;
-    path: string;
-    methods: Array<{ name: string; signature: string; url: string }>;
+  name: string;
+  url: string;
+  path: string;
+  methods: Array<{ name: string; signature: string; url: string }>;
 };
 
-async function getDocumentation(onProgress: (current: number, total: number) => void) {
-    try {
-        const response = await fetch("https://github.wpilib.org/allwpilib/docs/release/java/allclasses-index.html", {
-            method: "get"
-        });
-        const text = await response.text();
-        const htmlText = text.replace(/^updateSearchIndex\(/, '').replace(/\);$/, '');
+async function getDocumentation() {
+  try {
+    const memberResponse = await fetch("https://github.wpilib.org/allwpilib/docs/release/java/member-search-index.js");
+    const memberText = await memberResponse.text();
+    const memberJson = JSON.parse(
+      memberText.replace(/^memberSearchIndex = /, "").replace(/;updateSearchResults\(\);$/, ""),
+    );
 
-        const regex = /href="([^"]+\.html)"[^>]*>([^<]+)<\/a>/g;
-        const classesList: ClassItem[] = [];
-        let match;
+    const typeResponse = await fetch("https://github.wpilib.org/allwpilib/docs/release/java/type-search-index.js");
+    const typeText = await typeResponse.text();
+    const typeJson = JSON.parse(typeText.replace(/^typeSearchIndex = /, "").replace(/;updateSearchResults\(\);$/, ""));
 
-        while ((match = regex.exec(htmlText)) !== null) {
-            const relativePath = match[1];
-            const className = match[2].trim();
-            
-            if (relativePath.startsWith('#')) continue;
-            if (className.length <= 1) continue;
+    const classes = typeJson
+      .filter((type) => type.p && type.l)
+      .map((type) => {
+        const fullClass = `${type.p}.${type.l}`;
+        const members = memberJson.filter((member) => member.p === type.p && member.c === type.l);
+        const path = `${type.p.replaceAll(".", "/")}/${type.l}.html`;
 
-            classesList.push({
-                name: className,
-                url: `https://github.wpilib.org/allwpilib/docs/release/java/${relativePath}`,
-                path: relativePath,
-                methods: []
-            });
-        }
+        return {
+          name: type.l,
+          package: type.p,
+          url: `${BASE_URL}${path}`,
+          path,
+          methods: members.map((m) => ({
+            name: m.l,
+            url: `${BASE_URL}${path}#${m.l}`,
+          })),
+        };
+      });
 
-        const uniqueClasses = Array.from(new Map(classesList.map(item => [item.url, item])).values()).splice(4);
-        const totalCount = uniqueClasses.length;
-
-        let num = 0;
-        for (const item of uniqueClasses) {
-            try {
-                const classResponse = await fetch(item.url, {
-                    method: "get"
-                });
-                const classText = await classResponse.text();
-                const classHtmlText = classText.replace(/^updateSearchIndex\(/, '').replace(/\);$/, '');
-                const methodsList: { name: string; signature: string; description: string; url: string; }[] = [];
-
-                const rowRegex = /<(tr|div)[^>]*(?:summary-table|row)[^>]*>([\s\S]*?)<\/\1>/gi;
-                let rowMatch;
-
-                while ((rowMatch = rowRegex.exec(classHtmlText)) !== null) {
-                    const rowHtml = rowMatch[2];
-                    const methodLinkMatch = /<a[^>]*href="#([^"]+\([^\)]*\))"[^>]*>([^<]+)<\/a>/i.exec(rowHtml);
-                    if (!methodLinkMatch) {
-                        continue;
-                    }
-
-                    const methodSignature = methodLinkMatch[1];
-                    const methodName = methodLinkMatch[2].trim();
-                    if (methodsList.some(m => m.signature === methodSignature)) {
-                        continue;
-                    }
-
-                    let methodDescription = "";
-                    const descMatch = /<(td|div)[^>]*(?:col-last|block|description)[^>]*>([\s\S]*?)<\/\1>/i.exec(rowHtml);
-                    
-                    if (descMatch && descMatch[2]) {
-                        methodDescription = htmlToText(descMatch[2]);
-                    }
-
-                    methodsList.push({
-                        name: methodName,
-                        signature: methodSignature,
-                        description: methodDescription,
-                        url: `${item.url}#${methodSignature}`
-                    });
-                }
-                item.methods = methodsList;
-
-                num++;
-                onProgress(num, totalCount);
-            } catch (error) {
-                console.log(error);
-                return;
-            }
-        }
-
-        return uniqueClasses;
-    } catch (error) {
-        console.log(error);
-    }
+    return classes;
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 function getClassMarkdown(item: ClassItem): string {
-    let markdown = "";
-    markdown += `## ${item.name}\n\n`;
+  let markdown = "";
+  markdown += `## ${item.name}\n\n`;
+  markdown += `*${item.path.replace(".html", "").replace("edu/wpi/first/", "")}*\n\n`;
 
-    if (item.methods.length > 0) {
-        markdown += `### Methods\n\n`;
-        let previousName = "";
-        let signature = "";
+  if (item.methods.length === 0) return markdown + `## No methods available.`;
 
-        for (const method of item.methods) {
-            signature = method.signature;
-            try {
-                signature = decodeURIComponent(signature);
-            } catch {
-                signature = signature.replace(/%3Cinit%3E/gi, "<init>");
-            }
-            signature = signature.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  markdown += `### Methods\n\n`;
 
-            if (method.name != previousName) {
-                markdown += `${method.name}:\n\n`;
-            }
-            markdown += `- ${signature}`;
+  const grouped = new Map<string, typeof item.methods>();
+  for (const method of item.methods) {
+    if (!grouped.has(method.name)) grouped.set(method.name, []);
+    grouped.get(method.name)!.push(method);
+  }
 
-            markdown += `\n\n`;
-            previousName = method.name;
-        }
-    } else {
-        markdown += `## No methods available.`;
+  for (const [name, overloads] of grouped) {
+    for (const method of overloads) {
+      markdown += `- ${method.name}\n\n`;
     }
+    markdown += `---\n\n`;
+  }
 
-    return markdown;
+  return markdown;
+}
+
+function getClassKeywords(item: ClassItem): string[] {
+  return item.methods.map((m) => m.name);
 }
 
 export default function Command() {
-    const [searchText, setSearchText] = useState("");
-    const [loading, setLoading] = useState<boolean>(false);
-    const [data, setData] = useState<any[] | null>(() => {
-        const cachedDocs = cache.get("wpilibJavaDocumentation");
-        if (typeof cachedDocs === "string") {
-            try {
-                return JSON.parse(cachedDocs);
-            } catch (error) {
-                return null;
-            }
-        }
-        return cachedDocs ?? null;
-    });
+  const [searchText, setSearchText] = useState("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [data, setData] = useState<any[] | null>(() => {
+    const cachedDocs = cache.get("wpilibJavaDocumentation");
+    if (typeof cachedDocs === "string") {
+      try {
+        return JSON.parse(cachedDocs);
+      } catch (error) {
+        return null;
+      }
+    }
+    return cachedDocs ?? null;
+  });
 
-    const handleSearchChange = (text: string) => {
-        setSearchText(text);
-        cache.set(SEARCH_TEXT_KEY, text);
-    };
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+    cache.set(SEARCH_TEXT_KEY, text);
+  };
 
-    const fetchDocumentation = async () => {
-        if (loading) return;
+  const fetchDocumentation = async () => {
+    if (loading) return;
 
-        setLoading(true);
+    setLoading(true);
 
-        const docs = await getDocumentation((current, total) => {
-            setSearchText(`Fetching docs: ${current} / ${total}`);
-        });
+    const docs = await getDocumentation();
 
-        cache.set("wpilibJavaDocumentation", JSON.stringify(docs ?? []))
-        setData(docs ?? []);
-        setLoading(false);
-        setSearchText("");
-    };
+    cache.set("wpilibJavaDocumentation", JSON.stringify(docs ?? []));
+    setData(docs ?? []);
+    setLoading(false);
+    setSearchText("");
+  };
 
-    return (
-        <List
-            searchText={searchText}
-            onSearchTextChange={handleSearchChange}
-            filtering={true}
-            searchBarPlaceholder="Search WPILib Documentation"
-            isLoading={loading}
-            isShowingDetail
+  return (
+    <List
+      searchText={searchText}
+      onSearchTextChange={handleSearchChange}
+      filtering={true}
+      searchBarPlaceholder="Search WPILib Documentation"
+      isLoading={loading}
+      isShowingDetail
+      actions={
+        <ActionPanel title="">
+          <Action title="Fetch Documentation" onAction={fetchDocumentation} />
+        </ActionPanel>
+      }
+    >
+      {data &&
+        !loading &&
+        data.map((item) => (
+          <List.Item
+            key={item.url}
+            title={item.name}
+            detail={<List.Item.Detail markdown={getClassMarkdown(item)} />}
+            keywords={getClassKeywords(item)}
             actions={
-                <ActionPanel title="">
-                    <Action
-                        title="Fetch Documentation"
-                        onAction={fetchDocumentation}
-                    />
-                </ActionPanel>
+              <ActionPanel>
+                <Action.OpenInBrowser url={item.url} />
+                <Action title="Fetch Documentation" onAction={fetchDocumentation} />
+              </ActionPanel>
             }
-        >
-            {data && !loading && data.map(item => (
-                <List.Item
-                    key={item.url}
-                    title={item.name}
-                    accessories={[{ text: item.path.replace(".html", "") }]}
-                    detail={<List.Item.Detail markdown={getClassMarkdown(item)} />}
-                    actions={
-                        <ActionPanel>
-                            <Action.OpenInBrowser url={item.url} />
-                            <Action
-                                title="Fetch Documentation"
-                                onAction={fetchDocumentation}
-                            />
-                        </ActionPanel>
-                    }
-                />
-            ))}
-        </List>
-    );
+          />
+        ))}
+    </List>
+  );
 }
