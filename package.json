@@ -23,6 +23,12 @@
       "mode": "view"
     },
     {
+      "name": "wpilib-cpp-documentation",
+      "title": "WPILib C++ Documentation",
+      "description": "",
+      "mode": "view"
+    },
+    {
       "name": "motor-sensor-status-light-reference",
       "title": "Motor & Sensor Status Light Reference",
       "description": "",
