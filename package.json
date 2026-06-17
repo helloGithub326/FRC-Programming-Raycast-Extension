@@ -29,10 +29,10 @@
       "mode": "view"
     },
     {
-      "name": "motor-sensor-status-light-reference",
-      "title": "Motor & Sensor Status Light Reference",
+      "name": "status-light-reference",
+      "title": "FRC Status Light Reference",
       "description": "",
-      "mode": "view"
+      "mode": "no-view"
     },
     {
       "name": "frc-unit-converter",
@@ -43,7 +43,7 @@
   ],
   "dependencies": {
     "@raycast/api": "^1.104.19",
-    "@raycast/utils": "^1.17.0"
+    "@raycast/utils": "^2.2.6"
   },
   "devDependencies": {
     "@raycast/eslint-config": "^2.0.4",

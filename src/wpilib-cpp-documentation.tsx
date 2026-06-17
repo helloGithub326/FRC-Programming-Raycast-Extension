@@ -1,19 +1,11 @@
 import { List, Cache, ActionPanel, Action, Icon } from "@raycast/api";
-import { useState, useRef } from "react";
+import { useState } from "react";
 
 const cache = new Cache();
 const SEARCH_TEXT_KEY = "searchTextCpp";
 const BASE_URL = "https://github.wpilib.org/allwpilib/docs/release/cpp/";
 
-type ClassItem = {
-  name: string;
-  url: string;
-  path: string;
-  tag: string;
-};
-
 async function getDocumentation() {
-  const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
   const allClasses = [];
   for (let i = 0; i < 20; i++) {
     try {
