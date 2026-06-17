@@ -12,22 +12,47 @@ type ClassItem = {
   methods: Array<{ name: string; signature: string; url: string }>;
 };
 
+interface JavaTypeEntry {
+  p: string;
+  l: string;
+}
+
+interface JavaMemberEntry {
+  p: string;
+  c: string;
+  l: string;
+}
+
+interface JavaMethod {
+  name: string;
+  url: string;
+}
+
+interface JavaClassEntry {
+  name: string;
+  package: string;
+  url: string;
+  path: string;
+  methods: JavaMethod[];
+}
+
 async function getDocumentation() {
   try {
     const memberResponse = await fetch("https://github.wpilib.org/allwpilib/docs/release/java/member-search-index.js");
     const memberText = await memberResponse.text();
     const memberJson = JSON.parse(
       memberText.replace(/^memberSearchIndex = /, "").replace(/;updateSearchResults\(\);$/, ""),
-    );
+    ) as JavaMemberEntry[];
 
     const typeResponse = await fetch("https://github.wpilib.org/allwpilib/docs/release/java/type-search-index.js");
     const typeText = await typeResponse.text();
-    const typeJson = JSON.parse(typeText.replace(/^typeSearchIndex = /, "").replace(/;updateSearchResults\(\);$/, ""));
+    const typeJson = JSON.parse(
+      typeText.replace(/^typeSearchIndex = /, "").replace(/;updateSearchResults\(\);$/, ""),
+    ) as JavaTypeEntry[];
 
     const classes = typeJson
       .filter((type) => type.p && type.l)
       .map((type) => {
-        const fullClass = `${type.p}.${type.l}`;
         const members = memberJson.filter((member) => member.p === type.p && member.c === type.l);
         const path = `${type.p.replaceAll(".", "/")}/${type.l}.html`;
 
@@ -64,7 +89,7 @@ function getClassMarkdown(item: ClassItem): string {
     grouped.get(method.name)!.push(method);
   }
 
-  for (const [name, overloads] of grouped) {
+  for (const [, overloads] of grouped) {
     for (const method of overloads) {
       markdown += `- ${method.name}\n\n`;
     }
@@ -81,12 +106,13 @@ function getClassKeywords(item: ClassItem): string[] {
 export default function Command() {
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [data, setData] = useState<any[] | null>(() => {
+  const [data, setData] = useState<JavaClassEntry[] | null>(() => {
     const cachedDocs = cache.get("wpilibJavaDocumentation");
     if (typeof cachedDocs === "string") {
       try {
-        return JSON.parse(cachedDocs);
+        return JSON.parse(cachedDocs) as JavaClassEntry[];
       } catch (error) {
+        console.log(error);
         return null;
       }
     }

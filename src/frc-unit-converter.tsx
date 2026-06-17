@@ -57,9 +57,8 @@ function getMarkdown(conversionType: string, termsStr: string): [string, string]
   let fromUnit = null;
   let convertUnit = null;
 
-  var convertedValue: number | null = null;
-  var parametersUsed: ParameterDisplay[] | null = null;
-  var parametersNeeded: string[] = [];
+  let convertedValue: number | null = null;
+  let parametersUsed: ParameterDisplay[] | null = null;
 
   let parametersNeededStr = "";
 
@@ -74,7 +73,6 @@ function getMarkdown(conversionType: string, termsStr: string): [string, string]
 
         convertedValue = conversionResult.result;
         parametersUsed = conversionResult.parametersUsed;
-        parametersNeeded = conversionResult.parametersNeeded;
 
         if (conversionResult.parametersNeeded.length > 0) {
           parametersNeededStr = conversionResult.parametersNeeded.join(", ");
@@ -90,7 +88,6 @@ function getMarkdown(conversionType: string, termsStr: string): [string, string]
 
         convertedValue = conversionResult.result;
         parametersUsed = conversionResult.parametersUsed;
-        parametersNeeded = conversionResult.parametersNeeded;
 
         if (conversionResult.parametersNeeded.length > 0) {
           parametersNeededStr = conversionResult.parametersNeeded.join(", ");
@@ -106,7 +103,6 @@ function getMarkdown(conversionType: string, termsStr: string): [string, string]
 
         convertedValue = conversionResult.result;
         parametersUsed = conversionResult.parametersUsed;
-        parametersNeeded = conversionResult.parametersNeeded;
 
         if (conversionResult.parametersNeeded.length > 0) {
           parametersNeededStr = conversionResult.parametersNeeded.join(", ");
@@ -115,7 +111,7 @@ function getMarkdown(conversionType: string, termsStr: string): [string, string]
     }
   }
 
-  var markdown = ``;
+  let markdown = ``;
 
   markdown += `${syntaxHelp}\n\n`;
 

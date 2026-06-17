@@ -1,9 +1,16 @@
-import { List, Cache, ActionPanel, Action, Icon } from "@raycast/api";
+import { List, Cache, ActionPanel, Action } from "@raycast/api";
 import { useState } from "react";
 
 const cache = new Cache();
 const SEARCH_TEXT_KEY = "searchTextCpp";
 const BASE_URL = "https://github.wpilib.org/allwpilib/docs/release/cpp/";
+
+interface CppClassEntry {
+  name: string;
+  url: string;
+  path: string;
+  tag: string;
+}
 
 async function getDocumentation() {
   const allClasses = [];
@@ -14,7 +21,7 @@ async function getDocumentation() {
       const json = eval(text.replace(/^var searchData=\n/, ""));
 
       for (const entry of json) {
-        const [displayName, details] = entry;
+        const [, details] = entry;
         const name = details[0];
         if (name.includes("&lt;")) continue;
         if (name.includes("_wpi_proto_")) continue;
@@ -39,12 +46,13 @@ async function getDocumentation() {
 export default function Command() {
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [data, setData] = useState<any[] | null>(() => {
+  const [data, setData] = useState<CppClassEntry[] | null>(() => {
     const cachedDocs = cache.get("wpilibCppDocumentation");
     if (typeof cachedDocs === "string") {
       try {
-        return JSON.parse(cachedDocs);
+        return JSON.parse(cachedDocs) as CppClassEntry[];
       } catch (error) {
+        console.log(error);
         return null;
       }
     }
