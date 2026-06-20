@@ -7,9 +7,13 @@ A Raycast extension for FRC (FIRST Robotics Competition) programmers, giving qui
 ### Features
 
 - WPILib Java Documentation — search WPILib's Java API classes and methods directly
+![](metadata/frc-programming-2.png)
+![](metadata/frc-programming-3.png)
 - WPILib C++ Documentation — search WPILib's C++ API classes
+![](metadata/frc-programming-4.png)
 - FRC Status Light Reference — jump straight to WPILib's reference page for status light patterns on FRC hardware components
 - FRC Unit Converter — convert between units commonly used in FRC robot code, including velocity, angular velocity, torque, and force.
+![](metadata/frc-programming-1.png)
 
 Rather than scraping documentation HTML, the Java and C++ commands fetch the search index files for each documentation, parse them into structured data, and cache the results locally so repeat searches are instant.
 
